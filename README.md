@@ -56,6 +56,6 @@ This toolkit automates step 3, allowing you to forge any payload you want.
 
 ## Contributing
 
-Contributions, issues, and feature requests are welcome! If you have an idea to improve the tool or want to see a new feature implemented, please feel free to open an issue.
+Contributions, issues, and feature requests are welcome! If you have an idea to improve the tool or want to see a new feature implemented, please feel free to open an issue or discussion.
 
 I built this tool to solve my own problems, but I hope it can help others in the bug bounty community too.

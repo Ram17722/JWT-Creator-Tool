@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced JWT Toolkit</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .gradient-text {
+            background: linear-gradient(90deg, #38bdf8, #818cf8, #c084fc);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        textarea, .font-mono { font-family: 'Roboto Mono', 'Menlo', 'Monaco', 'Courier New', monospace; }
+        textarea::placeholder { color: #4a5568; opacity: 0.8; }
+        .history-details { max-height: 0; overflow: hidden; transition: max-height 0.5s ease-out; }
+        .history-item.open .history-details { max-height: 600px; }
+        .history-item.open .chevron { transform: rotate(180deg); }
+        .modal-bg { backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+        .tab-btn.active {
+            background-color: #38bdf8;
+            color: #fff;
+        }
+        .tab-btn {
+            background-color: #374151;
+            color: #d1d5db;
+        }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-200">
+    <div class="container mx-auto p-4 md:p-8">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl md:text-5xl font-bold gradient-text">Advanced JWT Toolkit</h1>
+            <p class="mt-2 text-gray-400">Forge, decode, and manage JWTs with ease.</p>
+        </header>
+
+        <div class="mb-8">
+            <div class="flex border-b border-gray-700">
+                <button id="forger-tab-btn" class="tab-btn py-2 px-4 font-semibold transition-colors duration-300 rounded-t-lg">JWT Forger</button>
+                <button id="decoder-tab-btn" class="tab-btn py-2 px-4 font-semibold transition-colors duration-300 rounded-t-lg">JWT Decoder</button>
+            </div>
+        </div>
+
+        <div id="forger-tab-content" class="tab-content">
+            <main class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div class="flex flex-col gap-6">
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <label for="jwt-header" class="block text-sm font-medium text-gray-300">JWT Header</label>
+                            <button id="header-template-btn" class="text-xs bg-gray-700 hover:bg-gray-600 text-sky-400 font-semibold py-1 px-2 rounded-md">Use Template</button>
+                        </div>
+                        <textarea id="jwt-header" rows="5" class="w-full p-3 bg-gray-800 border border-gray-700 rounded-md shadow-sm focus:ring-2 focus:ring-sky-500 text-sm"></textarea>
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <label for="jwt-payload" class="block text-sm font-medium text-gray-300">JWT Payload</label>
+                            <button id="payload-template-btn" class="text-xs bg-gray-700 hover:bg-gray-600 text-sky-400 font-semibold py-1 px-2 rounded-md">Use Template</button>
+                        </div>
+                        <textarea id="jwt-payload" rows="10" class="w-full p-3 bg-gray-800 border border-gray-700 rounded-md shadow-sm focus:ring-2 focus:ring-sky-500 text-sm"></textarea>
+                    </div>
+                    <div>
+                        <label for="public-key" class="block text-sm font-medium text-gray-300 mb-2">Public Key (HMAC secret)</label>
+                        <textarea id="public-key" rows="8" class="w-full p-3 bg-gray-800 border border-gray-700 rounded-md shadow-sm focus:ring-2 focus:ring-sky-500 text-sm"></textarea>
+                    </div>
+                    <button id="generate-btn" class="w-full bg-sky-600 hover:bg-sky-700 text-white font-bold py-3 px-4 rounded-md shadow-lg transform hover:scale-105 transition-all">Generate JWT</button>
+                </div>
+                <div class="flex flex-col gap-6">
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                             <label class="block text-sm font-medium text-gray-300">Generated JWT</label>
+                             <button id="copy-btn" class="bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs font-semibold py-1 px-2 rounded-md">Copy</button>
+                        </div>
+                        <div id="forged-jwt-display" class="w-full p-3 bg-gray-800 border border-gray-700 rounded-md text-sm break-all h-[240px] lg:min-h-[220px] overflow-y-auto font-mono"></div>
+                        <textarea id="forged-jwt-raw" class="absolute -left-full"></textarea>
+                    </div>
+                    <div id="error-box" class="hidden p-4 bg-red-900/50 border border-red-500 rounded-md text-red-300 text-sm"></div>
+                    <div class="bg-gray-800/50 border border-gray-700 rounded-md p-4">
+                        <h3 class="font-semibold text-lg text-sky-400">How It Works</h3>
+                        <p class="mt-2 text-sm text-gray-400">
+                            This tool demonstrates the <a href="https://auth0.com/blog/critical-vulnerabilities-in-json-web-token-libraries/" target="_blank" rel="noopener" class="text-sky-500 hover:underline">alg=none / HMAC key confusion</a> vulnerability. By changing the JWT's algorithm (`alg`) in the header to `HS256`, we can trick a misconfigured server into verifying the signature using the public key as a symmetric secret. This allows us to forge any payload we want.
+                        </p>
+                        <ol class="list-decimal list-inside mt-3 text-sm text-gray-400 space-y-1">
+                            <li>The Header and Payload are Base64Url encoded.</li>
+                            <li>The signature is created using HMAC-SHA256.</li>
+                            <li>The <code class="text-xs bg-gray-700 p-1 rounded">PEM Public Key</code> itself is used as the secret for the HMAC function.</li>
+                            <li>The final token is assembled as <span class="text-red-400">header</span>.<span class="text-purple-400">payload</span>.<span class="text-sky-400">signature</span>.</li>
+                        </ol>
+                    </div>
+                </div>
+            </main>
+        </div>
+
+        <div id="decoder-tab-content" class="tab-content">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div class="flex flex-col gap-4">
+                    <label for="token-to-decode" class="block text-sm font-medium text-gray-300">Paste a JWT to decode:</label>
+                    <textarea id="token-to-decode" rows="8" class="w-full p-3 bg-gray-800 border border-gray-700 rounded-md shadow-sm focus:ring-2 focus:ring-sky-500 text-sm" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"></textarea>
+                    <div id="decoder-error-box" class="hidden p-4 bg-red-900/50 border border-red-500 rounded-md text-red-300 text-sm"></div>
+                </div>
+                <div id="decoder-output" class="hidden flex flex-col gap-4">
+                    <div class="flex justify-end gap-2">
+                        <button id="copy-to-forger-btn" class="text-xs bg-gray-700 hover:bg-gray-600 text-sky-400 font-semibold py-1 px-2 rounded-md">📤 Copy to Forger</button>
+                    </div>
+                    <div>
+                        <h3 class="font-semibold text-red-400 mb-1">Header</h3>
+                        <pre id="decoded-header" class="p-3 bg-gray-800 rounded-md text-xs whitespace-pre-wrap"></pre>
+                    </div>
+                    <div>
+                        <h3 class="font-semibold text-purple-400 mb-1">Payload</h3>
+                        <pre id="decoded-payload" class="p-3 bg-gray-800 rounded-md text-xs whitespace-pre-wrap"></pre>
+                    </div>
+                     <div>
+                        <h3 class="font-semibold text-sky-400 mb-1">Signature</h3>
+                        <div id="decoded-signature" class="p-3 bg-gray-800 rounded-md text-xs break-all font-mono"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <section class="mt-12">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-bold text-gray-300">Generation History</h2>
+                <div class="flex gap-2">
+                    <button id="import-history-btn" class="text-xs bg-gray-700 hover:bg-gray-600 text-sky-400 font-semibold py-1 px-2 rounded-md">Import</button>
+                    <button id="export-history-btn" class="text-xs bg-gray-700 hover:bg-gray-600 text-sky-400 font-semibold py-1 px-2 rounded-md">Export</button>
+                    <button id="clear-history-btn" class="text-xs bg-red-800 hover:bg-red-700 text-red-200 font-semibold py-1 px-2 rounded-md">Clear</button>
+                </div>
+            </div>
+            <div id="history-list" class="flex flex-col gap-4">
+                <p id="no-history-msg" class="text-gray-500">No history yet. Generate a JWT to see it here.</p>
+            </div>
+        </section>
+    </div>
+
+    <div id="confirm-modal" class="hidden fixed inset-0 bg-gray-900/80 modal-bg z-50 flex items-center justify-center p-4">
+        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-xl w-full max-w-md">
+            <div id="confirm-modal-content" class="p-6">
+                 <h3 class="text-xl font-bold text-gray-100 mb-4">Are you sure?</h3>
+                 <p class="text-gray-400 mb-6">This action cannot be undone. All history will be permanently deleted.</p>
+                 <div class="flex justify-end gap-4">
+                    <button id="confirm-cancel-btn" class="py-2 px-4 bg-gray-600 hover:bg-gray-500 rounded-md">Cancel</button>
+                    <button id="confirm-delete-btn" class="py-2 px-4 bg-red-600 hover:bg-red-700 rounded-md">Confirm Clear</button>
+                 </div>
+            </div>
+        </div>
+    </div>
+    <input type="file" id="import-file-input" class="hidden" accept=".json">
+
+    <script>
+        // --- DOM Elements ---
+        const forgerTabBtn = document.getElementById('forger-tab-btn'), decoderTabBtn = document.getElementById('decoder-tab-btn'), forgerTabContent = document.getElementById('forger-tab-content'), decoderTabContent = document.getElementById('decoder-tab-content');
+        const headerInput = document.getElementById('jwt-header'), payloadInput = document.getElementById('jwt-payload'), publicKeyInput = document.getElementById('public-key'), generateBtn = document.getElementById('generate-btn'), outputDisplay = document.getElementById('forged-jwt-display'), outputRaw = document.getElementById('forged-jwt-raw'), copyBtn = document.getElementById('copy-btn'), errorBox = document.getElementById('error-box'), headerTemplateBtn = document.getElementById('header-template-btn'), payloadTemplateBtn = document.getElementById('payload-template-btn');
+        const tokenToDecode = document.getElementById('token-to-decode'), decoderErrorBox = document.getElementById('decoder-error-box'), decoderOutput = document.getElementById('decoder-output'), decodedHeader = document.getElementById('decoded-header'), decodedPayload = document.getElementById('decoded-payload'), decodedSignature = document.getElementById('decoded-signature'), copyToForgerBtn = document.getElementById('copy-to-forger-btn');
+        const historyList = document.getElementById('history-list'), noHistoryMsg = document.getElementById('no-history-msg'), clearHistoryBtn = document.getElementById('clear-history-btn'), importHistoryBtn = document.getElementById('import-history-btn'), exportHistoryBtn = document.getElementById('export-history-btn'), importFileInput = document.getElementById('import-file-input');
+        const confirmModal = document.getElementById('confirm-modal'), confirmCancelBtn = document.getElementById('confirm-cancel-btn'), confirmDeleteBtn = document.getElementById('confirm-delete-btn');
+
+        // --- State ---
+        let jwtHistory = [];
+
+        // --- Core & Helper Functions ---
+        const base64UrlEncode = str => CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(str)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+        const base64UrlDecode = str => CryptoJS.enc.Utf8.stringify(CryptoJS.enc.Base64.parse(str.replace(/-/g, '+').replace(/_/g, '/')));
+        const showError = (box, msg) => { box.textContent = `Error: ${msg}`; box.classList.remove('hidden'); };
+        const clearError = (box) => box.classList.add('hidden');
+
+        // --- Tab Management ---
+        function switchTab(tab) {
+            const isActive = tab === 'forger';
+            forgerTabBtn.classList.toggle('active', isActive);
+            decoderTabBtn.classList.toggle('active', !isActive);
+            forgerTabContent.classList.toggle('active', isActive);
+            decoderTabContent.classList.toggle('active', !isActive);
+        }
+        
+        // --- Confirmation Modal ---
+        function showConfirmModal() { confirmModal.classList.remove('hidden'); }
+        function closeConfirmModal() { confirmModal.classList.add('hidden'); }
+
+        // --- JWT Forger Logic ---
+        function generateJWT() {
+            clearError(errorBox);
+            try {
+                const headerStr = headerInput.value || headerInput.placeholder;
+                const payloadStr = payloadInput.value || payloadInput.placeholder;
+                const publicKey = publicKeyInput.value || publicKeyInput.placeholder;
+                if (!publicKey.trim()) throw new Error("Public Key is empty.");
+                const headerObj = JSON.parse(headerStr), payloadObj = JSON.parse(payloadStr);
+                const headerB64 = base64UrlEncode(JSON.stringify(headerObj)), payloadB64 = base64UrlEncode(JSON.stringify(payloadObj));
+                const signingInput = `${headerB64}.${payloadB64}`;
+
+                // --- FIX START ---
+                // The original code incorrectly tried to Base64-encode the signature hash as if it were a UTF-8 string.
+                // The correct method is to take the raw WordArray output of HmacSHA256 and convert it directly to a Base64 string.
+                const signatureWordArray = CryptoJS.HmacSHA256(signingInput, publicKey);
+                const signatureB64 = signatureWordArray.toString(CryptoJS.enc.Base64)
+                    .replace(/\+/g, '-')
+                    .replace(/\//g, '_')
+                    .replace(/=/g, '');
+                // --- FIX END ---
+
+                outputRaw.value = `${signingInput}.${signatureB64}`;
+                outputDisplay.innerHTML = `<span class="text-red-400">${headerB64}</span>.<span class="text-purple-400">${payloadB64}</span>.<span class="text-sky-400">${signatureB64}</span>`;
+                saveToHistory({ jwt: { header: headerB64, payload: payloadB64, signature: signatureB64 }, header: JSON.stringify(headerObj, null, 2), payload: JSON.stringify(payloadObj, null, 2), publicKey, timestamp: new Date().toISOString() });
+            } catch (err) { showError(errorBox, err instanceof SyntaxError ? "Invalid JSON in Header or Payload." : err.message); }
+        }
+
+        // --- JWT Decoder Logic ---
+        function decodeJWT() {
+            clearError(decoderErrorBox);
+            decoderOutput.classList.add('hidden');
+            const token = tokenToDecode.value.trim();
+            if (!token) return;
+
+            const parts = token.split('.');
+            if (parts.length !== 3) {
+                showError(decoderErrorBox, "Invalid JWT format. A JWT must have three parts separated by dots.");
+                return;
+            }
+
+            try {
+                const header = JSON.stringify(JSON.parse(base64UrlDecode(parts[0])), null, 2);
+                const payload = JSON.stringify(JSON.parse(base64UrlDecode(parts[1])), null, 2);
+                decodedHeader.textContent = header;
+                decodedPayload.textContent = payload;
+                decodedSignature.textContent = parts[2];
+                decoderOutput.classList.remove('hidden');
+            } catch (err) {
+                showError(decoderErrorBox, "Failed to decode token. The header or payload is not valid Base64Url-encoded JSON.");
+            }
+        }
+        
+        // --- History Management ---
+        function renderHistory() {
+            historyList.innerHTML = '';
+            noHistoryMsg.classList.toggle('hidden', jwtHistory.length > 0);
+            jwtHistory.slice().reverse().forEach(item => {
+                const el = document.createElement('div');
+                el.className = 'history-item bg-gray-800/50 border border-gray-700 rounded-md';
+                el.innerHTML = `<div class="p-3 cursor-pointer flex justify-between items-center"><div class="font-mono text-xs truncate pr-4">${item.jwt.header}.${item.jwt.payload}.${item.jwt.signature.substring(0,10)}...</div><div class="flex items-center gap-4"><span class="text-xs text-gray-500">${new Date(item.timestamp).toLocaleString()}</span><svg class="chevron w-4 h-4 text-gray-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg></div></div><div class="history-details border-t border-gray-700/50 p-4 space-y-4"><div><h4 class="text-sm font-semibold text-sky-400 mb-1">Generated JWT</h4><div class="p-2 bg-gray-900 rounded font-mono text-xs break-all"><span class="text-red-400">${item.jwt.header}</span>.<span class="text-purple-400">${item.jwt.payload}</span>.<span class="text-sky-400">${item.jwt.signature}</span></div></div><div><h4 class="text-sm font-semibold text-sky-400 mb-1">Header</h4><pre class="p-2 bg-gray-900 rounded text-xs whitespace-pre-wrap">${item.header}</pre></div><div><h4 class="text-sm font-semibold text-sky-400 mb-1">Payload</h4><pre class="p-2 bg-gray-900 rounded text-xs whitespace-pre-wrap">${item.payload}</pre></div><div><h4 class="text-sm font-semibold text-sky-400 mb-1">Public Key</h4><pre class="p-2 bg-gray-900 rounded text-xs whitespace-pre-wrap">${item.publicKey}</pre></div></div>`;
+                historyList.appendChild(el);
+            });
+        }
+        const saveToHistory = item => { jwtHistory.push(item); localStorage.setItem('jwtHistory', JSON.stringify(jwtHistory)); renderHistory(); };
+        const loadHistory = () => { const s = localStorage.getItem('jwtHistory'); if(s) { jwtHistory = JSON.parse(s); renderHistory(); } };
+        const exportHistory = () => {
+            if (jwtHistory.length === 0) return;
+            const blob = new Blob([JSON.stringify(jwtHistory, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `jwt-history-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        };
+        const importHistory = (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = e => {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    if (Array.isArray(imported)) {
+                        jwtHistory = [...new Map([...jwtHistory, ...imported].map(item => [item.timestamp, item])).values()];
+                        localStorage.setItem('jwtHistory', JSON.stringify(jwtHistory));
+                        renderHistory();
+                    } else { alert("Error: Invalid history file format."); }
+                } catch (err) { alert("Error: Could not parse history file."); }
+                event.target.value = ''; // Reset file input
+            };
+            reader.readAsText(file);
+        };
+
+        // --- Event Listeners ---
+        document.addEventListener('DOMContentLoaded', () => { loadHistory(); switchTab('forger'); });
+        forgerTabBtn.addEventListener('click', () => switchTab('forger'));
+        decoderTabBtn.addEventListener('click', () => switchTab('decoder'));
+        generateBtn.addEventListener('click', generateJWT);
+        headerTemplateBtn.addEventListener('click', () => headerInput.value = JSON.stringify({ "alg": "HS256", "typ": "JWT" }, null, 2));
+        payloadTemplateBtn.addEventListener('click', () => {
+            const now = Math.floor(Date.now() / 1000);
+            const randomPayloads = [
+                {
+                    sub: `user_${Math.floor(Math.random() * 99999)}`,
+                    role: ["user", "admin", "guest", "moderator"][Math.floor(Math.random() * 4)],
+                    name: ["Alice", "Bob", "Charlie", "David", "Eve"][Math.floor(Math.random() * 5)],
+                    iat: now,
+                    exp: now + 3600
+                },
+                {
+                    user_id: Math.floor(Math.random() * 999999),
+                    email: `user${Math.floor(Math.random() * 999)}@example.com`,
+                    permissions: ["read", "write", "delete"][Math.floor(Math.random() * 3)],
+                    iat: now,
+                    exp: now + 3600
+                },
+                {
+                    account: `acc_${Math.random().toString(36).substr(2, 9)}`,
+                    scope: ["api:read", "api:write", "admin:all"][Math.floor(Math.random() * 3)],
+                    org_id: Math.floor(Math.random() * 100),
+                    iat: now,
+                    exp: now + 3600
+                },
+                {
+                    jti: Math.random().toString(36).substr(2, 12),
+                    username: `user${Math.floor(Math.random() * 100)}`,
+                    is_admin: Math.random() < 0.5,
+                    iat: now,
+                    exp: now + 3600
+                }
+            ];
+
+            const randomPayload = randomPayloads[Math.floor(Math.random() * randomPayloads.length)];
+            payloadInput.value = JSON.stringify(randomPayload, null, 2);
+        });
+        copyBtn.addEventListener('click', () => {
+             if (outputRaw.value) {
+                outputRaw.select();
+                document.execCommand('copy');
+                copyBtn.textContent='Copied!';
+                setTimeout(()=>copyBtn.textContent='Copy', 1500);
+            }
+        });
+        tokenToDecode.addEventListener('input', decodeJWT);
+        copyToForgerBtn.addEventListener('click', () => {
+            headerInput.value = decodedHeader.textContent;
+            payloadInput.value = decodedPayload.textContent;
+            switchTab('forger');
+        });
+        clearHistoryBtn.addEventListener('click', showConfirmModal);
+        confirmCancelBtn.addEventListener('click', closeConfirmModal);
+        confirmDeleteBtn.addEventListener('click', () => {
+            jwtHistory = [];
+            localStorage.removeItem('jwtHistory');
+            renderHistory();
+            closeConfirmModal();
+        });
+        exportHistoryBtn.addEventListener('click', exportHistory);
+        importHistoryBtn.addEventListener('click', () => importFileInput.click());
+        importFileInput.addEventListener('change', importHistory);
+        historyList.addEventListener('click', e => { e.target.closest('.history-item > div:first-child')?.parentElement.classList.toggle('open'); });
+    </script>
+</body>
+</html>

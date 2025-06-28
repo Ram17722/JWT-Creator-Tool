@@ -26,7 +26,7 @@ While hunting for bugs, I often found myself needing to quickly forge JWTs to te
     
     - Specifically designed to demonstrate and test the **HMAC key confusion vulnerability**. It allows you to provide a public key, which is then used as the secret to sign the token with the `HS256` algorithm.
         
-- 🗂 **Full History Management**
+-  **History Management**
     
     - Automatically saves a history of all generated tokens to your browser's local storage.
         
